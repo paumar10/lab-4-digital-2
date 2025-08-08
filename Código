@@ -24,3 +24,41 @@ Laboratorio #3
 #define botonbrillo 18 //determina el brillo del led
 #define botonright 17 //mover servo a la derecha
 #define botonleft 4 //mover servo a la izquierda
+
+//Variables para hacer cambios de leds 
+typedef enum color {rojo=0, verde, azul, todo} color;
+volatile color colorActual = rojo;
+
+//Variables para modificar el brillo de cada led
+volatile uint8_t brillo_V=0;
+volatile uint8_t brillo_R=0;
+volatile uint8_t brillo_A=0;
+
+//Configuración del PWM: channels
+#define pwmChannel_V 0
+#define pwmChannel_R 1
+#define pwmChannel_A 2
+
+//Configuración del PWM:frecuencia
+#define freqpwm 50
+
+//Configuración del PWM: resolución
+#define respwm 10
+
+//Prototipo de función para configurar el PWM
+void initPWM_V();
+void initPWM_R();
+void initPWM_A();
+
+//Prototipo de funciones para botones con ISR
+void initbotonled();
+void initbotonbrillo();
+void initbotonleft();
+void initbotonright();
+void IRAM_ATTR botonled_ISR();
+void IRAM_ATTR botonbrillo_ISR();
+void IRAM_ATTR botonleft_ISR();
+void IRAM_ATTR botonright_ISR();
+
+//Prototipo de funciones para actualizar los estados de los leds
+void actualizarpwm();
