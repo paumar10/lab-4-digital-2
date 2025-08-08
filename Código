@@ -1,0 +1,26 @@
+/*
+23143
+Paulina Martínez
+Electrónica digital 2
+Sección 10
+Laboratorio #3
+*/
+
+//Librerías para el código
+#include <Arduino.h>
+#include <stdint.h>
+//Librería para PWM
+#include <driver/ledc.h>
+//Librería para el servo
+#include <ESP32Servo.h>
+
+//Definición de leds
+#define LED_V 27
+#define LED_R 26
+#define LED_A 12
+
+//Definición de botones (todos pull down)
+#define botonled 21 //escoge que led modificar
+#define botonbrillo 18 //determina el brillo del led
+#define botonright 17 //mover servo a la derecha
+#define botonleft 4 //mover servo a la izquierda
