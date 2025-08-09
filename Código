@@ -62,3 +62,123 @@ void IRAM_ATTR botonright_ISR();
 
 //Prototipo de funciones para actualizar los estados de los leds
 void actualizarpwm();
+
+//Variables para antirrebote de los botones que va a estar en el ISR
+const long tiempo = 100;
+volatile uint32_t lastb1 = 0;
+volatile uint32_t lastb2 = 0;
+volatile uint32_t lastb3 = 0;
+volatile uint32_t lastb4 = 0;
+bool estadob1 = LOW;
+bool estadob2 = LOW;
+bool estadob3 = LOW;
+bool estadob4 = LOW;
+bool lecturab1;
+bool lecturab2;
+bool lecturab3;
+bool lecturab4;
+
+void setup() {
+  //Inicio de comunicación serial
+  Serial.begin(115200);
+
+  //Definición de los pines de botones
+  pinMode(botonled, INPUT_PULLDOWN);
+  pinMode(botonbrillo, INPUT_PULLDOWN);
+  pinMode(botonright, INPUT_PULLDOWN);
+  pinMode(botonleft, INPUT_PULLDOWN);
+
+  //Definición de los pines de leds
+  pinMode(LED_V, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_A, OUTPUT);
+
+  //Configuración del PWM
+  initPWM_A();
+  initPWM_R();
+  initPWM_V();
+
+  //Configuración de interrupción para botones
+  initbotonled();
+  initbotonbrillo();
+  initbotonleft();
+  initbotonright();
+
+void loop() {
+  //Actualización de los leds
+  actualizarpwm();
+
+//Funciones para el PWM
+void initPWM_A(){
+  ledcSetup(pwmChannel_A, freqpwm, respwm);
+  ledcAttachPin(LED_A, pwmChannel_A);
+  //ledcWrite(pwmChannel_A, 0);
+}
+
+
+void initPWM_R(){
+  ledcSetup(pwmChannel_R, freqpwm, respwm);
+  ledcAttachPin(LED_R, pwmChannel_R);
+  //ledcWrite(pwmChannel_R, 0);
+}
+
+
+void initPWM_V(){
+  ledcSetup(pwmChannel_V, freqpwm, respwm);
+  ledcAttachPin(LED_V, pwmChannel_V);
+  //ledcWrite(pwmChannel_V, 0);
+}
+
+//Lectura de botones con el ISR
+void initbotonled() {
+  attachInterrupt(digitalPinToInterrupt(botonled), botonled_ISR, RISING); //rising porque es pull down
+}
+
+void initbotonbrillo() {
+  attachInterrupt(digitalPinToInterrupt(botonbrillo), botonbrillo_ISR, RISING); //rising porque es pull down
+}
+
+void initbotonright() {
+  attachInterrupt(digitalPinToInterrupt(botonright), botonright_ISR, RISING); //rising porque es pull down
+}
+
+void initbotonleft() {
+  attachInterrupt(digitalPinToInterrupt(botonleft), botonleft_ISR, RISING); //rising porque es pull down
+}
+
+//ISR botones para leds
+void IRAM_ATTR botonled_ISR() {
+  uint32_t tiempoactual = millis();
+  if (tiempoactual - lastb3 > tiempo) {
+    colorActual=(color)((colorActual+1)%3);
+    lastb3=tiempoactual;
+}
+}
+
+void IRAM_ATTR botonbrillo_ISR() {
+  uint32_t tiempoactual2 = millis();
+  if (tiempoactual2 - lastb4 > tiempo) {
+    switch(colorActual){
+      case rojo: brillo_R=(brillo_R+1)%5;
+      break;
+      case verde: brillo_V=(brillo_V+1)%5;
+      break;
+      case azul: brillo_A=(brillo_A+1)%5;
+      break;
+    }
+    lastb4=tiempoactual2;
+}
+}
+
+void actualizarpwm(){
+  //Esto nos calcula el valor máximo del duty cycle dependiendo de la resolución
+  const uint32_t MAX_DUTY = (1u << respwm) - 1u; //Aquí es de 2^10-1, porque ese valor tiene respwm, escala este valor usando -1
+  //Divide esto en 4 niveles, entonces convierte el brillo proporcionalmente
+  uint32_t dutyA = (brillo_A * MAX_DUTY) / 4; //brillo = 0 equivale al duty = 0
+  uint32_t dutyR = (brillo_R * MAX_DUTY) / 4; //brillo =4 equivale al duty = 2^10-1
+  uint32_t dutyV = (brillo_V * MAX_DUTY) / 4;
+  //Se indica a que channel qué hacer, implementando el duty a cada uno
+  ledcWrite(pwmChannel_A, dutyA);
+  ledcWrite(pwmChannel_R, dutyR);
+  ledcWrite(pwmChannel_V, dutyV);
+}
