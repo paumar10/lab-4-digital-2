@@ -25,9 +25,17 @@ Laboratorio #3
 #define botonright 17 //mover servo a la derecha
 #define botonleft 4 //mover servo a la izquierda
 
+//Definición del servo y su pin
+#define pinservo 25
+Servo servo;
+
 //Variables para hacer cambios de leds 
 typedef enum color {rojo=0, verde, azul, todo} color;
 volatile color colorActual = rojo;
+
+//Variables para hacer cambios de ángulos
+typedef enum angulos {s0, s1, s2, s3, s4} estados;
+volatile uint8_t posicionservo = 0;
 
 //Variables para modificar el brillo de cada led
 volatile uint8_t brillo_V=0;
@@ -38,6 +46,7 @@ volatile uint8_t brillo_A=0;
 #define pwmChannel_V 0
 #define pwmChannel_R 1
 #define pwmChannel_A 2
+#define pwmChannel_servo 3
 
 //Configuración del PWM:frecuencia
 #define freqpwm 50
@@ -49,6 +58,7 @@ volatile uint8_t brillo_A=0;
 void initPWM_V();
 void initPWM_R();
 void initPWM_A();
+void initPWM_servo();
 
 //Prototipo de funciones para botones con ISR
 void initbotonled();
@@ -62,6 +72,9 @@ void IRAM_ATTR botonright_ISR();
 
 //Prototipo de funciones para actualizar los estados de los leds
 void actualizarpwm();
+
+//Prototipo de funciones para actualizar el movimiento del servo
+void moverservo();
 
 //Variables para antirrebote de los botones que va a estar en el ISR
 const long tiempo = 100;
@@ -97,6 +110,7 @@ void setup() {
   initPWM_A();
   initPWM_R();
   initPWM_V();
+  initPWM_servo();
 
   //Configuración de interrupción para botones
   initbotonled();
@@ -104,9 +118,17 @@ void setup() {
   initbotonleft();
   initbotonright();
 
+  //Configuración del servo
+  servo.attach(pinservo);
+  servo.write(0);
+
 void loop() {
   //Actualización de los leds
   actualizarpwm();
+
+  //Actualizalización de la posición del servo
+  moverservo();
+}
 
 //Funciones para el PWM
 void initPWM_A(){
@@ -127,6 +149,11 @@ void initPWM_V(){
   ledcSetup(pwmChannel_V, freqpwm, respwm);
   ledcAttachPin(LED_V, pwmChannel_V);
   //ledcWrite(pwmChannel_V, 0);
+}
+
+void initPWM_servo(){
+  ledcSetup(pwmChannel_servo, freqpwm, respwm);
+  ledcAttachPin(pinservo, pwmChannel_servo);
 }
 
 //Lectura de botones con el ISR
@@ -181,4 +208,56 @@ void actualizarpwm(){
   ledcWrite(pwmChannel_A, dutyA);
   ledcWrite(pwmChannel_R, dutyR);
   ledcWrite(pwmChannel_V, dutyV);
+}
+
+//ISR botones para servo
+void IRAM_ATTR botonleft_ISR() {
+  uint32_t tiempoactual3 = millis();
+  if (tiempoactual3 - lastb1 > tiempo) {
+    if (posicionservo>0){
+      posicionservo--; //mueve el servo a la izquierda
+      moverservo();
+    }
+    lastb1=tiempoactual3;
+}
+}
+void IRAM_ATTR botonright_ISR() {
+  uint32_t tiempoactual4 = millis();
+  if (tiempoactual4 - lastb2 > tiempo) {
+    if (posicionservo<4){
+      posicionservo++; //mueve el servo a la derecha
+      moverservo();
+    }
+    lastb2=tiempoactual4;
+}
+}
+
+//Movimiento del servo a 45 grados cada que se presionan los botones
+void moverservo(){
+  //const uint32_t MAX_DUTY_servo = (1u << respwm) - 1u; //Aquí es de 2^10-1, porque ese valor tiene respwm, escala este valor usando -1
+  switch (posicionservo)
+  {
+  case s0:
+    //uint32_t duty0 = (MAX_DUTY_servo)*0.025;
+    ledcWrite(pwmChannel_servo, 26);
+    break;
+  case s1:
+    //uint32_t duty1 = (MAX_DUTY_servo)*0.05;
+    ledcWrite(pwmChannel_servo, 51);
+    break;
+  case s2:
+    //uint32_t duty2 = (MAX_DUTY_servo)*0.075;
+    ledcWrite(pwmChannel_servo, 77);
+    break;  
+  case s3:
+    //uint32_t duty3 = (MAX_DUTY_servo)*0.10;
+    ledcWrite(pwmChannel_servo, 102);
+    break;
+  case s4:
+    //uint32_t duty4 = (MAX_DUTY_servo)*0.125;
+    ledcWrite(pwmChannel_servo, 129);
+    break;
+  default:
+    break;
+  }
 }
