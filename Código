@@ -19,7 +19,7 @@ Laboratorio #3
 #define LED_R 26
 #define LED_A 12
 
-//Definición de botones (todos pull down)
+//Definición de botones (todos pull down internos)
 #define botonled 21 //escoge que led modificar
 #define botonbrillo 18 //determina el brillo del led
 #define botonright 17 //mover servo a la derecha
@@ -34,7 +34,7 @@ typedef enum color {rojo=0, verde, azul, todo} color;
 volatile color colorActual = rojo;
 
 //Variables para hacer cambios de ángulos
-typedef enum angulos {s0, s1, s2, s3, s4} estados;
+typedef enum angulos {s0, s1, s2, s3, s4} angulos;
 volatile uint8_t posicionservo = 0;
 
 //Variables para modificar el brillo de cada led
@@ -82,14 +82,6 @@ volatile uint32_t lastb1 = 0;
 volatile uint32_t lastb2 = 0;
 volatile uint32_t lastb3 = 0;
 volatile uint32_t lastb4 = 0;
-bool estadob1 = LOW;
-bool estadob2 = LOW;
-bool estadob3 = LOW;
-bool estadob4 = LOW;
-bool lecturab1;
-bool lecturab2;
-bool lecturab3;
-bool lecturab4;
 
 void setup() {
   //Inicio de comunicación serial
@@ -119,8 +111,8 @@ void setup() {
   initbotonright();
 
   //Configuración del servo
-  servo.attach(pinservo);
-  servo.write(0);
+  posicionservo = 0;
+  moverservo();
 
 void loop() {
   //Actualización de los leds
@@ -174,12 +166,16 @@ void initbotonleft() {
 }
 
 //ISR botones para leds
+//ISR botones para leds y modo servo
 void IRAM_ATTR botonled_ISR() {
   uint32_t tiempoactual = millis();
   if (tiempoactual - lastb3 > tiempo) {
-    colorActual=(color)((colorActual+1)%3);
-    lastb3=tiempoactual;
-}
+    //El +1 sube el contador del switch case, ya que los estados van de 0 a 3 en este caso
+    //Así, hace que pase al siguiente modo
+    //El %4 hace que sea circular el contador, al llegar a 4, vuelve a 0
+    colorActual = (color)((colorActual+1)%4);
+    lastb3 = tiempoactual;
+  }
 }
 
 void IRAM_ATTR botonbrillo_ISR() {
@@ -197,13 +193,48 @@ void IRAM_ATTR botonbrillo_ISR() {
 }
 }
 
+//Función para actualizar las leds, con el modo integrado incluido
 void actualizarpwm(){
   //Esto nos calcula el valor máximo del duty cycle dependiendo de la resolución
-  const uint32_t MAX_DUTY = (1u << respwm) - 1u; //Aquí es de 2^10-1, porque ese valor tiene respwm, escala este valor usando -1
+  const uint32_t MAX_DUTY = (1u << respwm) - 1u;//Aquí es de 2^10-1, porque ese valor tiene respwm, escala este valor usando -1
   //Divide esto en 4 niveles, entonces convierte el brillo proporcionalmente
-  uint32_t dutyA = (brillo_A * MAX_DUTY) / 4; //brillo = 0 equivale al duty = 0
-  uint32_t dutyR = (brillo_R * MAX_DUTY) / 4; //brillo =4 equivale al duty = 2^10-1
-  uint32_t dutyV = (brillo_V * MAX_DUTY) / 4;
+  uint32_t dutyA = 0;
+  uint32_t dutyR = 0;
+  uint32_t dutyV = 0;
+  //Parte A: control del brillo de los servos con b4
+  if (colorActual != modoServo) {
+    dutyA = (brillo_A * MAX_DUTY) / 4;//brillo = 0 equivale al duty = 0
+    dutyR = (brillo_R * MAX_DUTY) / 4;//brillo =4 equivale al duty = 2^10-1
+    dutyV = (brillo_V * MAX_DUTY) / 4;
+  } 
+  //Parte C: modo de integración
+  else {
+    switch (posicionservo) {
+      //El caso s0 y el s4, por ser los de los extremos, dejan apagados los leds
+      case s0:
+        dutyA=0;
+        dutyR=0;
+        dutyV=0;
+        break;
+      //Este enciende el led rojo, al duty cycle máximo, para que tenga todo su brillo
+      case s1:
+        dutyR = MAX_DUTY; 
+        break;
+      //Este enciende el led verde, al duty cycle máximo, para que tenga todo su brillo
+      case s2:
+        dutyV = MAX_DUTY; 
+        break;
+      //Este enciende el led azul, al duty cycle máximo, para que tenga todo su brillo
+      case s3:
+        dutyA = MAX_DUTY;
+        break;
+      case s4:
+        dutyA=0;
+        dutyR=0;
+        dutyV=0;
+        break; 
+    }
+  }
   //Se indica a que channel qué hacer, implementando el duty a cada uno
   ledcWrite(pwmChannel_A, dutyA);
   ledcWrite(pwmChannel_R, dutyR);
